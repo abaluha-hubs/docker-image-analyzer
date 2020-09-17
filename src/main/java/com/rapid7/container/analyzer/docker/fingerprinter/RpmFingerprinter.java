@@ -37,7 +37,17 @@ public class RpmFingerprinter implements LayerFileHandler {
     if (!entry.isSymbolicLink() && name.endsWith("lib/rpm/Packages")) {
       File directory = Files.createTempDirectory("rpm").toFile();
       try {
-        File packages = new File(directory, "Packages");
+        // this codepath expects a version of rpm with support for the `--dbpath` to be installed. That's not the case
+        // for use when we run this in the our centos image. The RPM query below has been updated to not use `--dbpath`
+        // and we place the Packages db at `$tmp/var/lib/rpm/Packages`, that way we can just set --root to `$tmp` and
+        // it looks in the right place for the Packages DB. Without this dir structure, rpm won't find the Package DB
+        // and will instead create the skeleton of a new RPM database at `$tmp/var/lib/rpm`, which is obviously not what
+        // we want. If we ever upgrade the centos base image and it's version of rpm supports --dbpath, then we can rip
+        // all of this out and just use the unmodified upstream source
+        File mockRpmDir = new File(directory.getAbsolutePath(), "var/lib/rpm");
+        mockRpmDir.mkdirs();
+
+        File packages = new File(directory, "var/lib/rpm/Packages");
 
         LOGGER.info("Extracting RPM Packages database to {}.", packages.getAbsolutePath());
 
@@ -53,7 +63,7 @@ public class RpmFingerprinter implements LayerFileHandler {
           synchronized (this) {
             // the --root flag sets the path which all rpm commands use as base for relative paths.
             // the --dbpath flag uses a path relative to the root path. we use "." (current directory) since the root path is the full rpmdb path.
-            Process process = new ProcessBuilder("/usr/bin/env", "rpm", "--root=" + directory.getAbsolutePath(),"--dbpath=.", "-qa", "--queryformat=" + RPM_QUERY_FORMAT).start();
+            Process process = new ProcessBuilder("/usr/bin/env", "rpm", "--root=" + directory.getAbsolutePath(), "-qa", "--queryformat=" + RPM_QUERY_FORMAT).start();
             LOGGER.info(format("[Image: {}] Parsing RPM output.", image.getId()).getMessage());
             layer.addPackages(rpmPackageParser.parse(process.getInputStream(), image.getOperatingSystem() == null ? layer.getOperatingSystem() : image.getOperatingSystem()));
             if (!process.waitFor(5, TimeUnit.SECONDS))
