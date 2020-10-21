@@ -106,6 +106,23 @@ class FingerprinterTest {
   }
 
   @Test
+  void parseCentosRelease() throws IOException {
+    // Given
+    Fingerprinter fp = new Fingerprinter();
+
+    // When
+    OperatingSystem os = fp.parse(FingerprinterTest.class.getResourceAsStream("redhat-release-for-centos.txt"), "/etc/redhat-release", "x86_64");
+
+    // Then
+    assertEquals("CentOS", os.getVendor());
+    assertEquals("Linux", os.getFamily());
+    assertEquals("Linux", os.getName());
+    assertEquals("x86_64", os.getArchitecture());
+    assertEquals("5.11", os.getVersion());
+    assertEquals("CentOS Linux 5.11", os.getDescription());
+  }
+
+  @Test
   void parseUbuntu() throws IOException {
     // Given
     Fingerprinter fp = new Fingerprinter();
