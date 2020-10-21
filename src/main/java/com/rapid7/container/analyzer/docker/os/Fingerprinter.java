@@ -20,6 +20,7 @@ public class Fingerprinter {
   private static final Pattern PATTERN = Pattern.compile("(?<name>.*)=(?<value>.*)");
   private static final Pattern PHOTON_RELEASE = Pattern.compile("^(?i:VMWare Photon(?:\\s?OS)?(?:/)?(?:\\s?Linux)?\\s?(?:v)?(\\d+?(?:\\.\\d+?)*?)?)$");
   private static final Pattern RHEL_RELEASE = Pattern.compile("^(?i:(?:Red Hat|RedHat|Red-Hat|RHEL)(?: Enterprise)?(?: Linux)?(?: Server)?(?: release)?(?: [a-z]+)?\\s?(\\d+?(?:\\.\\d+?)*?)?)(?:\\s?\\(.*\\))?$");
+  private static final Pattern CENTOS_RELEASE = Pattern.compile("^(?i:(?:CentOs)\\s*(?: release)?\\s*(?: [a-z]+)?\\s?(\\d+?(?:\\.\\d+?)*?)?)(?:\\s?\\(.*\\))?$");
   private static final String OS_FAMILY = "Linux";
   private static final Map<String, String> OS_ID_TO_VENDOR = Arrays.stream(new String[][]{
       {"alpine", "Alpine"},
@@ -103,16 +104,24 @@ public class Fingerprinter {
 
   private OperatingSystem parseRhelFamilyRelease(InputStream input, String architecture) throws IOException {
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-      Matcher matcher = RHEL_RELEASE.matcher("");
+      Matcher redhatMatcher = RHEL_RELEASE.matcher("");
+      Matcher centosMatcher = CENTOS_RELEASE.matcher("");
       String version = "";
+      String vendor = "";
       String line = null;
       while ((line = reader.readLine()) != null) {
-        matcher.reset(line);
-        if (matcher.matches())
-          version = matcher.group(1);
+        redhatMatcher.reset(line);
+        centosMatcher.reset(line);
+        if (redhatMatcher.matches()) {
+          version = redhatMatcher.group(1);
+          vendor = "Red Hat";
+        } else if (centosMatcher.matches()) {
+          version = centosMatcher.group(1);
+          vendor = "CentOS";
+        }
       }
 
-      return fingerprintOperatingSystem("Red Hat", OS_FAMILY, version, architecture);
+      return fingerprintOperatingSystem(vendor, OS_FAMILY, version, architecture);
     }
   }
 
